@@ -1,5 +1,7 @@
 # gaiaCore
 
+### WARNING: this package is under-development and has only been tested using mock data
+
 # Introduction
 An R Package for interacting with gaiaDB - part of the OHDSI GIS **Gaia** toolchain
 
