@@ -26,4 +26,4 @@ connectionDetails <- DatabaseConnector::createConnectionDetails(
 ```
 
 # Support
--   Please use the <a href="../../issues">GitHub issue tracker</a> for all bugs, issues, and feature requests
+-   Please use the <a href="https://github.com/OHDSI/gaiaCore/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen">GitHub issue tracker</a> for all bugs, issues, and feature requests
