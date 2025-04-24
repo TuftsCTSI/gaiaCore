@@ -27,3 +27,18 @@ connectionDetails <- DatabaseConnector::createConnectionDetails(
 
 # Support
 -   Please use the <a href="https://github.com/OHDSI/gaiaCore/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen">GitHub issue tracker</a> for all bugs, issues, and feature requests
+
+# Details
+## Offline Storage
+
+Offline storage can be set up for the purpose of loading local datasets in gaiaDB and persisting downloaded source datasets.
+
+Offline storage is configured using a file `storage.yml` to specify a directory and whether or not to persist downloaded datasets.
+
+You can create this file using the helper function `setup_offline_storage()`:
+
+```R
+setup_offline_storage(dir = "/path/to/data", persist_data = TRUE)
+```
+
+The above command will create a file named `storage.yml` in your working directory. It will also create a directory `path/to/data` if one does not already exist. Any datasets downloaded using `loadGeometry()` or `loadVariable()` will be saved to this directory!

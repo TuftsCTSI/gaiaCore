@@ -135,7 +135,7 @@ getStaged <- function(rec, storageConfig = readStorageConfig()) {
 #' 
 
 readStorageConfig <- function() {
-  yaml::read_yaml(system.file('config/storage.yml', package = 'gaiaCore'))
+  yaml::read_yaml('./storage.yml')
 }
 
 
