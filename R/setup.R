@@ -1,3 +1,19 @@
+#' Configure offline storage
+#'
+#' @param dir (string) The directory to be used for offline storage. Default is "/opt/data".
+#' @param persist_data (boolean) If TRUE, the downloaded files will persist indefinitely. If FALSE, they will not persist after the session ends. Default is FALSE.
+#'
+#' @return Copies the storage.yml file to the working directory and configures it with the specified directory and persistence settings. Alternatively, the file can be edited directly.
+#'
+#' @examples
+#' \dontrun{
+#'
+#' setup_offline_storage(dir = "/path/to/data", persist_data = TRUE)
+#' }
+#'
+#' @export
+#'
+
 setup_offline_storage <- function(dir = "/opt/data", persist_data = FALSE) {
     # Copy the storage.yml from inst/config to the working directory
     if (!file.exists("storage.yml")) {
