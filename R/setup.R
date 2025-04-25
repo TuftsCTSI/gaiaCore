@@ -17,7 +17,7 @@
 setup_offline_storage <- function(dir = "/opt/data", persist_data = FALSE) {
     # Copy the storage.yml from inst/config to the working directory
     if (!file.exists("storage.yml")) {
-        file.copy("inst/config/storage.yml", "storage.yml", overwrite = TRUE)
+        file.copy(system.file("config", "storage.yml", package = "gaiaCore"), "storage.yml", overwrite = TRUE)
     }
     # Edit the storage.yml file to set the directory and change 
     storage_config <- readLines("storage.yml")
