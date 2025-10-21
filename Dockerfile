@@ -11,7 +11,12 @@ RUN apk add --no-cache \
     ca-certificates \
     git \
     build-base \
-    postgresql-dev
+    postgresql-dev \
+    bc \
+    make \
+    g++ \
+    clang15 \
+    llvm15
 
 # Install plsh (PostgreSQL shell procedural language)
 RUN cd /tmp && \
@@ -38,10 +43,6 @@ COPY sql/*.sql /docker-entrypoint-initdb.d/
 
 # Copy PostgREST configuration
 COPY postgrest.conf /etc/postgrest/postgrest.conf
-
-# Copy test data
-COPY test/*.csv /csv/
-COPY test/*.json /data/
 
 # Copy helper scripts
 COPY scripts/init_gaiacore.sh /docker-entrypoint-initdb.d/99_init_gaiacore.sh

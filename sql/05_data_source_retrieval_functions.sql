@@ -132,40 +132,45 @@ RETURNS TABLE(
     compression_type TEXT,
     processing_notes TEXT
 ) AS $$
+DECLARE
+    v_wget_action jsonb;
+    v_download_url TEXT;
 BEGIN
+    -- Find the 'etl_metadata' array element where potentialAction->name = 'wget'
+    SELECT elem INTO v_wget_action
+    FROM backbone.data_source ds,
+         jsonb_array_elements(ds.etl_metadata) elem
+    WHERE ds.data_source_uuid = p_data_source_uuid
+      AND elem->'potentialAction'->>'name' = 'wget'
+    LIMIT 1;
+
+    -- Extract download URL from the wget action result or fall back to distribution
+    SELECT COALESCE(
+        v_wget_action->'potentialAction'->'result'->>'url',
+        v_wget_action->'potentialAction'->'object'->>'url',
+        ds.etl_metadata->'distribution'->>0
+    ) INTO v_download_url
+    FROM backbone.data_source ds
+    WHERE ds.data_source_uuid = p_data_source_uuid;
+
+    -- Return the extracted information
     RETURN QUERY
     SELECT
-        -- Try to extract download URL from distribution array or etl_metadata
-        COALESCE(
-            ds.etl_metadata->'about'->0->'potentialAction'->'object'->>'url',
-            ds.etl_metadata->'distribution'->0::TEXT,
-            (ds.etl_metadata->'distribution'->0)::TEXT
-        ) as download_url,
+        v_download_url as download_url,
         -- Extract file format
         COALESCE(
-            ds.etl_metadata->'about'->0->'potentialAction'->'result'->>'encodingFormat',
+            v_wget_action->'potentialAction'->'result'->>'encodingFormat',
             'shapefile'
         ) as file_format,
         -- Determine compression from URL or format
         CASE
-            WHEN COALESCE(
-                ds.etl_metadata->'about'->0->'potentialAction'->'object'->>'url',
-                ds.etl_metadata->'distribution'->0::TEXT
-            ) LIKE '%.zip' THEN 'zip'
-            WHEN COALESCE(
-                ds.etl_metadata->'about'->0->'potentialAction'->'object'->>'url',
-                ds.etl_metadata->'distribution'->0::TEXT
-            ) LIKE '%.tar.gz' THEN 'tar.gz'
-            WHEN COALESCE(
-                ds.etl_metadata->'about'->0->'potentialAction'->'object'->>'url',
-                ds.etl_metadata->'distribution'->0::TEXT
-            ) LIKE '%.tgz' THEN 'tar.gz'
+            WHEN v_download_url LIKE '%.zip' THEN 'zip'
+            WHEN v_download_url LIKE '%.tar.gz' THEN 'tar.gz'
+            WHEN v_download_url LIKE '%.tgz' THEN 'tar.gz'
             ELSE NULL
         END as compression_type,
         -- Extract processing notes
-        ds.etl_metadata->'about'->0->'potentialAction'->>'description' as processing_notes
-    FROM backbone.data_source ds
-    WHERE ds.data_source_uuid = p_data_source_uuid;
+        v_wget_action->'potentialAction'->>'description' as processing_notes;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -466,13 +471,37 @@ BEGIN
     SELECT
         ds.data_source_uuid,
         ds.dataset_name,
-        (ds.etl_metadata->'about'->0->'potentialAction'->'object'->>'url') IS NOT NULL as has_download_url,
+        -- Check if wget action with URL exists
+        (
+            SELECT COALESCE(
+                elem->'potentialAction'->'result'->>'url',
+                elem->'potentialAction'->'object'->>'url'
+            ) IS NOT NULL
+            FROM jsonb_array_elements(ds.etl_metadata) elem
+            WHERE elem->'potentialAction'->>'name' = 'wget'
+            LIMIT 1
+        ) as has_download_url,
+        -- Extract download URL from wget action or fall back to distribution
         COALESCE(
-            ds.etl_metadata->'about'->0->'potentialAction'->'object'->>'url',
-            ds.etl_metadata->'distribution'->0::TEXT
+            (
+                SELECT COALESCE(
+                    elem->'potentialAction'->'result'->>'url',
+                    elem->'potentialAction'->'object'->>'url'
+                )
+                FROM jsonb_array_elements(ds.etl_metadata) elem
+                WHERE elem->'potentialAction'->>'name' = 'wget'
+                LIMIT 1
+            ),
+            ds.etl_metadata->'distribution'->>0
         ) as download_url,
+        -- Extract file format from wget action
         COALESCE(
-            ds.etl_metadata->'about'->0->'potentialAction'->'result'->>'encodingFormat',
+            (
+                SELECT elem->'potentialAction'->'result'->>'encodingFormat'
+                FROM jsonb_array_elements(ds.etl_metadata) elem
+                WHERE elem->'potentialAction'->>'name' = 'wget'
+                LIMIT 1
+            ),
             'unknown'
         ) as file_format,
         (ds.etl_metadata->'ingested_table') IS NOT NULL as already_ingested,
