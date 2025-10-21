@@ -186,7 +186,7 @@ SELECT * FROM working.location_statistics();
 
 ### 3. Load External Data Source
 
-**Option A: Automated Retrieval (Recommended) 🆕**
+**Option A: Automated Retrieval (Recommended) 
 
 Automatically download, extract, and load external data sources with a single function call:
 
