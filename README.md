@@ -644,30 +644,6 @@ For more detailed examples and advanced scenarios, see:
 - [DATA_RETRIEVAL_GUIDE.md](DATA_RETRIEVAL_GUIDE.md) - Comprehensive retrieval documentation
 - [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) - Additional usage scenarios
 
-## File Structure
-
-```
-gaiaCore/
-   sql/
-      01_init_schema.sql              # Schema and table definitions
-      02_jsonld_ingestion_functions.sql  # JSON-LD parsing functions
-      03_location_ingestion_functions.sql # Location loading functions
-      04_spatial_join_functions.sql   # Spatial join functions
-   test/
-      LOCATION.csv                    # Test location data
-      LOCATION_HISTORY.csv            # Test location history
-      meta_json-ld_*.json             # Test JSON-LD metadata
-   scripts/
-      init_gaiacore.sh                # Initialization script
-   external_exposure/
-      spatial_join_1pt.sql            # Reference: 1-point join
-      spatial_join_2pt.sql            # Reference: 2-point join
-   Dockerfile                          # Container definition
-   docker-compose.yml                  # Service orchestration
-   postgrest.conf                      # PostgREST configuration
-   README.md                           # This file
-```
-
 ## Troubleshooting
 
 ### Port Already in Use
