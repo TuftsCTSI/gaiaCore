@@ -77,7 +77,7 @@ curl http://localhost:3000/
 
 **Important**: Tables in the `working` schema (location, location_history, external_exposure) require the `Accept-Profile: working` header. See [POSTGREST_API_GUIDE.md](POSTGREST_API_GUIDE.md) for details.
 
-## What's New: Automated Data Retrieval
+## Automated Data Retrieval
 
 GaiaCore now features **automated data source retrieval**, allowing you to download and ingest external geospatial datasets with a single SQL function call.
 
@@ -105,17 +105,6 @@ docker exec -it gaiacore-postgres ogr2ogr \
 -- Single function call handles everything
 SELECT * FROM backbone.quick_ingest_datasource('PM2.5');
 ```
-
-### Key Benefits
-
-- **Simplified Workflow**: One function instead of multiple manual steps
-- **Metadata-Driven**: Uses URLs from JSON-LD automatically
-- **Error Handling**: Detailed progress and error reporting
-- **Reproducible**: Same function works across all environments
-- **Trackable**: Records ingestion status in database
-- **Flexible**: Override any parameter for custom workflows
-
-See the detailed [DATA_RETRIEVAL_GUIDE.md](DATA_RETRIEVAL_GUIDE.md) for comprehensive documentation.
 
 ## Usage
 
@@ -259,8 +248,6 @@ SELECT backbone.create_datasource_table(
 );
 ```
 
-See [DATA_RETRIEVAL_GUIDE.md](DATA_RETRIEVAL_GUIDE.md) for comprehensive documentation on automated data retrieval.
-
 ### 4. Perform Spatial Join
 
 Execute a spatial join between locations and a data source:
@@ -329,10 +316,14 @@ curl -X POST http://localhost:3000/rpc/exposure_statistics
 ## Key Functions Reference
 
 ### JSON-LD Ingestion
-- `backbone.load_jsonld_file(jsonld_text)`: Load JSON-LD metadata
-- `backbone.ingest_jsonld_metadata(jsonld_data)`: Parse dataset metadata
-- `backbone.ingest_jsonld_variables(jsonld_data, uuid)`: Parse variable definitions
-- `backbone.create_datasource_table(uuid, schema)`: Create table from metadata
+
+- `backbone.ingest_jsonld_metadata`: Parses JSON-LD metadata and stores in data_source table
+- `backbone.ingest_jsonld_variables`: Extracts variable definitions from JSON-LD and stores in variable_source;
+- `backbone.load_jsonld_file`: Main entry point to load JSON-LD content from text;
+- `backbone.load_jsonld_from_path`: Load JSON-LD from file path using pg_read_file;
+- `backbone.download_jsonld_to_file`: Download JSON-LD file from URL to temporary location;
+- `backbone.fetch_and_load_jsonld`: Fetch JSON-LD metadata from URL and load into database;
+- `backbone.create_datasource_table`: Dynamically creates a table structure based on JSON-LD variable definitions;
 
 ### Data Source Retrieval 🆕
 - `backbone.quick_ingest_datasource(dataset_name, url)`: One-line ingestion by name
