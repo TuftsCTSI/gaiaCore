@@ -128,7 +128,7 @@ SELECT * FROM working.load_location_data(
 SELECT dataset_name, download_url, already_ingested
 FROM backbone.list_downloadable_datasources();
 
--- Step 4: Automated data retrieval and ingestion (NEW!)
+-- Step 4: Automated data retrieval and ingestion
 SELECT * FROM backbone.quick_ingest_datasource('PM2.5');
 
 -- Step 5: Perform spatial join
@@ -630,10 +630,6 @@ Invalid Date Ranges    | PASS   | 0 records where end < start
 SELECT * FROM working.location_statistics();
 SELECT * FROM working.exposure_statistics();
 ```
-
-For more detailed examples and advanced scenarios, see:
-- [DATA_RETRIEVAL_GUIDE.md](DATA_RETRIEVAL_GUIDE.md) - Comprehensive retrieval documentation
-- [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) - Additional usage scenarios
 
 ## Troubleshooting
 
