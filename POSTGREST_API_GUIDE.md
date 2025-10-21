@@ -6,7 +6,7 @@ The PostgREST API is available at `http://localhost:3000`
 
 ## Accessing Tables from Different Schemas
 
-GaiaCore uses two schemas:
+gaiaCore uses two schemas:
 - **backbone**: Metadata tables (data_source, variable_source, geom_template, attr_template)
 - **working**: Operational tables (location, location_history, external_exposure)
 

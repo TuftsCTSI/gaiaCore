@@ -14,7 +14,6 @@ CREATE OR REPLACE FUNCTION backbone.fetch_and_extract_file(
 )
 RETURNS TEXT AS $$
 #!/bin/sh
-set -e
 
 # Create destination directory
 mkdir -p "$(dirname "$2")"
@@ -76,7 +75,6 @@ CREATE OR REPLACE FUNCTION backbone.ingest_raw_data(
 )
 RETURNS TEXT AS $$
 #!/bin/sh
-set -e
 
 # Build ogr2ogr command
 DB_CONN="dbname=gaiacore user=postgres"
@@ -122,6 +120,18 @@ else
 fi
 $$ LANGUAGE plsh;
 
+-- Function to ingest SQL-based data sources
+CREATE OR REPLACE FUNCTION backbone.ingest_sql_data(
+    file_path TEXT,
+    schema_name TEXT DEFAULT 'public'
+)
+RETURNS TEXT AS $$
+#!/bin/sh
+echo "Executing SQL file: $1"
+cat "$1" | psql "dbname=gaiacore user=postgres"
+echo "Successfully executed SQL file: $1"
+$$ LANGUAGE plsh;
+
 -- Function to process ETL metadata from JSON-LD
 CREATE OR REPLACE FUNCTION backbone.extract_etl_info_from_jsonld(
     p_data_source_uuid UUID
@@ -136,12 +146,12 @@ DECLARE
     v_wget_action jsonb;
     v_download_url TEXT;
 BEGIN
-    -- Find the 'etl_metadata' array element where potentialAction->name = 'wget'
+    -- Find the 'etl_metadata' array element where potentialAction->name = 'Pseudo Code'
     SELECT elem INTO v_wget_action
     FROM backbone.data_source ds,
          jsonb_array_elements(ds.etl_metadata) elem
     WHERE ds.data_source_uuid = p_data_source_uuid
-      AND elem->'potentialAction'->>'name' = 'wget'
+      AND elem->'potentialAction'->>'name' = 'Pseudo Code'
     LIMIT 1;
 
     -- Extract download URL from the wget action result or fall back to distribution
@@ -314,42 +324,62 @@ BEGIN
         v_extracted_path := v_download_path;
     END IF;
 
-    -- Step 6: Ingest into PostgreSQL using ogr2ogr
+    -- Step 6: Ingest into PostgreSQL using appropriate method
     RETURN QUERY SELECT 'ingestion'::TEXT, 'in_progress'::TEXT,
-        format('Ingesting into %s.%s', p_target_schema, v_table_name)::TEXT,
+        format('Ingesting into %s.%s using %s method', p_target_schema, v_table_name,
+               CASE WHEN v_file_format = 'sql' THEN 'SQL' ELSE 'ogr2ogr' END)::TEXT,
         NULL::JSONB;
 
     BEGIN
-        -- Determine geometry type from measurement technique
-        IF v_measurement_technique IS NOT NULL THEN
-            v_geom_type := v_measurement_technique->1->>'termCode';
-            IF v_geom_type = 'multipolygon' THEN
-                v_geom_type := 'MULTIPOLYGON';
-            ELSIF v_geom_type = 'polygon' THEN
-                v_geom_type := 'POLYGON';
-            ELSIF v_geom_type = 'point' THEN
-                v_geom_type := 'POINT';
-            ELSIF v_geom_type = 'line' THEN
-                v_geom_type := 'LINESTRING';
-            END IF;
-        END IF;
-
-        v_result := backbone.ingest_raw_data(
-            v_extracted_path,
-            v_table_name,
-            p_target_schema,
-            4326, -- SRID
-            'wgs_geom', -- geometry column name
-            v_geom_type -- geometry type
-        );
-
-        RETURN QUERY SELECT 'ingestion'::TEXT, 'success'::TEXT,
-            v_result::TEXT,
-            jsonb_build_object(
-                'schema', p_target_schema,
-                'table', v_table_name,
-                'full_name', format('%s.%s', p_target_schema, v_table_name)
+        -- Check if this is a SQL file
+        IF v_file_format = 'sql' OR v_extracted_path LIKE '%.sql' THEN
+            -- Use SQL ingestion method
+            v_result := backbone.ingest_sql_data(
+                v_extracted_path,
+                p_target_schema
             );
+
+            RETURN QUERY SELECT 'ingestion'::TEXT, 'success'::TEXT,
+                v_result::TEXT,
+                jsonb_build_object(
+                    'schema', p_target_schema,
+                    'method', 'sql',
+                    'message', 'SQL file executed successfully'
+                );
+        ELSE
+            -- Use ogr2ogr for spatial data formats
+            -- Determine geometry type from measurement technique
+            IF v_measurement_technique IS NOT NULL THEN
+                v_geom_type := v_measurement_technique->1->>'termCode';
+                IF v_geom_type = 'multipolygon' THEN
+                    v_geom_type := 'MULTIPOLYGON';
+                ELSIF v_geom_type = 'polygon' THEN
+                    v_geom_type := 'POLYGON';
+                ELSIF v_geom_type = 'point' THEN
+                    v_geom_type := 'POINT';
+                ELSIF v_geom_type = 'line' THEN
+                    v_geom_type := 'LINESTRING';
+                END IF;
+            END IF;
+
+            v_result := backbone.ingest_raw_data(
+                v_extracted_path,
+                v_table_name,
+                p_target_schema,
+                4326, -- SRID
+                'wgs_geom', -- geometry column name
+                v_geom_type -- geometry type
+            );
+
+            RETURN QUERY SELECT 'ingestion'::TEXT, 'success'::TEXT,
+                v_result::TEXT,
+                jsonb_build_object(
+                    'schema', p_target_schema,
+                    'table', v_table_name,
+                    'method', 'ogr2ogr',
+                    'full_name', format('%s.%s', p_target_schema, v_table_name)
+                );
+        END IF;
 
     EXCEPTION WHEN OTHERS THEN
         RETURN QUERY SELECT 'ingestion'::TEXT, 'error'::TEXT,
@@ -358,28 +388,34 @@ BEGIN
         RETURN;
     END;
 
-    -- Step 7: Create spatial index
-    RETURN QUERY SELECT 'indexing'::TEXT, 'in_progress'::TEXT,
-        'Creating spatial index'::TEXT,
-        NULL::JSONB;
-
-    BEGIN
-        EXECUTE format(
-            'CREATE INDEX IF NOT EXISTS idx_%I_wgs_geom ON %I.%I USING GIST(wgs_geom)',
-            v_table_name,
-            p_target_schema,
-            v_table_name
-        );
-
-        RETURN QUERY SELECT 'indexing'::TEXT, 'success'::TEXT,
-            format('Created spatial index on %s.%s', p_target_schema, v_table_name)::TEXT,
+    -- Step 7: Create spatial index (only for non-SQL data sources)
+    IF v_file_format != 'sql' AND v_extracted_path NOT LIKE '%.sql' THEN
+        RETURN QUERY SELECT 'indexing'::TEXT, 'in_progress'::TEXT,
+            'Creating spatial index'::TEXT,
             NULL::JSONB;
 
-    EXCEPTION WHEN OTHERS THEN
-        RETURN QUERY SELECT 'indexing'::TEXT, 'warning'::TEXT,
-            format('Could not create index: %s', SQLERRM)::TEXT,
-            jsonb_build_object('error', SQLERRM);
-    END;
+        BEGIN
+            EXECUTE format(
+                'CREATE INDEX IF NOT EXISTS idx_%I_wgs_geom ON %I.%I USING GIST(wgs_geom)',
+                v_table_name,
+                p_target_schema,
+                v_table_name
+            );
+
+            RETURN QUERY SELECT 'indexing'::TEXT, 'success'::TEXT,
+                format('Created spatial index on %s.%s', p_target_schema, v_table_name)::TEXT,
+                NULL::JSONB;
+
+        EXCEPTION WHEN OTHERS THEN
+            RETURN QUERY SELECT 'indexing'::TEXT, 'warning'::TEXT,
+                format('Could not create index: %s', SQLERRM)::TEXT,
+                jsonb_build_object('error', SQLERRM);
+        END;
+    ELSE
+        RETURN QUERY SELECT 'indexing'::TEXT, 'skipped'::TEXT,
+            'Skipping spatial index for SQL data source'::TEXT,
+            NULL::JSONB;
+    END IF;
 
     -- Step 8: Cleanup downloaded files (if requested)
     IF NOT p_keep_downloaded THEN
@@ -519,7 +555,8 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION backbone.fetch_and_extract_file IS 'Download and optionally extract compressed files from URL';
 COMMENT ON FUNCTION backbone.ingest_raw_data IS 'Ingest spatial data using ogr2ogr (based on gis_note_misc2.txt line 35)';
-COMMENT ON FUNCTION backbone.extract_etl_info_from_jsonld IS 'Extract ETL information from JSON-LD metadata';
-COMMENT ON FUNCTION backbone.retrieve_and_ingest_datasource IS 'Main function to download, extract, and ingest a data source';
+COMMENT ON FUNCTION backbone.ingest_sql_data IS 'Ingest SQL-based data sources by executing SQL file';
+COMMENT ON FUNCTION backbone.extract_etl_info_from_jsonld IS 'Extract ETL information from JSON-LD metadata by searching for wget action';
+COMMENT ON FUNCTION backbone.retrieve_and_ingest_datasource IS 'Main function to download, extract, and ingest a data source (supports both spatial and SQL formats)';
 COMMENT ON FUNCTION backbone.quick_ingest_datasource IS 'Simplified wrapper to ingest a data source by name';
 COMMENT ON FUNCTION backbone.list_downloadable_datasources IS 'List all data sources with download information';

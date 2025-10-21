@@ -287,7 +287,63 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Helper function to download JSON-LD to temp file
+CREATE OR REPLACE FUNCTION backbone.download_jsonld_to_file(
+    url TEXT,
+    temp_file TEXT DEFAULT '/tmp/jsonld_metadata.json'
+)
+RETURNS TEXT AS $$
+#!/bin/sh
+
+# Download JSON-LD file from URL
+echo "Downloading JSON-LD metadata from $1..."
+curl -s -L -o "$2" "$1"
+
+if [ $? -ne 0 ]; then
+    echo "Error: Download failed"
+    exit 1
+fi
+
+echo "Downloaded to: $2"
+$$ LANGUAGE plsh;
+
+-- Function to fetch JSON-LD from URL and load it
+CREATE OR REPLACE FUNCTION backbone.fetch_and_load_jsonld(
+    url TEXT,
+    temp_file TEXT DEFAULT '/tmp/jsonld_metadata.json'
+)
+RETURNS TABLE(
+    data_source_uuid UUID,
+    dataset_name TEXT,
+    variables_loaded INTEGER
+) AS $$
+DECLARE
+    v_download_result TEXT;
+    v_jsonld_content TEXT;
+BEGIN
+    -- Download the JSON-LD file
+    v_download_result := backbone.download_jsonld_to_file(url, temp_file);
+
+    RAISE NOTICE '%', v_download_result;
+
+    -- Read the downloaded file
+    BEGIN
+        v_jsonld_content := pg_read_file(temp_file);
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Failed to read downloaded file %: %', temp_file, SQLERRM;
+    END;
+
+    -- Process the JSON-LD content
+    RETURN QUERY SELECT * FROM backbone.load_jsonld_file(v_jsonld_content);
+
+    -- Note: Cleanup of temp file could be added here with another shell function if needed
+END;
+$$ LANGUAGE plpgsql;
+
 COMMENT ON FUNCTION backbone.ingest_jsonld_metadata IS 'Parses JSON-LD metadata and stores in data_source table';
 COMMENT ON FUNCTION backbone.ingest_jsonld_variables IS 'Extracts variable definitions from JSON-LD and stores in variable_source';
-COMMENT ON FUNCTION backbone.load_jsonld_file IS 'Main entry point to load JSON-LD content';
+COMMENT ON FUNCTION backbone.load_jsonld_file IS 'Main entry point to load JSON-LD content from text';
+COMMENT ON FUNCTION backbone.load_jsonld_from_path IS 'Load JSON-LD from file path using pg_read_file';
+COMMENT ON FUNCTION backbone.download_jsonld_to_file IS 'Download JSON-LD file from URL to temporary location';
+COMMENT ON FUNCTION backbone.fetch_and_load_jsonld IS 'Fetch JSON-LD metadata from URL and load into database';
 COMMENT ON FUNCTION backbone.create_datasource_table IS 'Dynamically creates a table structure based on JSON-LD variable definitions';
