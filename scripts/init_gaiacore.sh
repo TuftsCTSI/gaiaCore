@@ -1,11 +1,11 @@
 #!/bin/sh
-# GaiaCore Initialization Script
+# gaiaCore Initialization Script
 # This script loads test data after the database is initialized
 
 set -e
 
 echo "=================================================="
-echo "GaiaCore Initialization Starting..."
+echo "gaiaCore Initialization Starting..."
 echo "=================================================="
 
 # Wait for PostgreSQL to be ready
@@ -55,7 +55,7 @@ else
 fi
 
 echo "=================================================="
-echo "GaiaCore Initialization Complete!"
+echo "gaiaCore Initialization Complete!"
 echo ""
 echo "Database: gaiacore"
 echo "PostgreSQL Port: 5432"

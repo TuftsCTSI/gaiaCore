@@ -1,4 +1,4 @@
--- GaiaCore Database Initialization
+-- gaiaCore Database Initialization
 -- Creates schemas, extensions, and base tables
 
 -- Enable required extensions

@@ -35,10 +35,14 @@ Operational tables for locations and exposure calculations:
 
 ## Quick Start
 
-### Prerequisites
-- Docker and Docker Compose
-- 4GB+ RAM recommended
-- Ports 5432 and 3000 available
+
+> Note - the section below describes how you can interact directly with the gaiaCore service (e.g. running SQL 
+> queries directly on the database or running curl functions from your local terminal)
+> Alongside the main gaiaCore service, we've also created a set of 'connectors' in various languages that 
+> perform these same actions, but do so from a potentially more familiar programming environment.
+> We would recommend reviewing and testing the steps below to get an understanding of what is required to 
+> execute the tool, and then moving on to review the README.md document inside the 'connectors' directory which
+> describes how to use the different wrappers around these functions.
 
 ### Installation
 
@@ -50,7 +54,7 @@ cd gaiaCore
 
 2. Start the services:
 ```bash
-docker-compose up -d
+docker-compose up -d gaiacore-db gaiacore-api
 ```
 
 3. Check the logs:
@@ -63,9 +67,10 @@ docker-compose logs -f gaiacore-db
 docker exec -it gaiacore-postgres psql -U postgres -d gaiacore
 ```
 
-5. Access the API:
+5. Access the API from your local terminal (not from a connector):
 ```bash
 # List data sources (backbone schema - default)
+#
 curl http://localhost:3000/data_source
 
 # Query location data (working schema - requires header)
@@ -79,7 +84,7 @@ curl http://localhost:3000/
 
 ## Automated Data Retrieval
 
-GaiaCore now features **automated data source retrieval**, allowing you to download and ingest external geospatial datasets with a single SQL function call.
+gaiaCore allows you to download and ingest external geospatial datasets with a single SQL function call (after loading their json ld file)
 
 ### Before vs After
 

@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   gaiacore-db:
@@ -13,7 +12,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - gaiacore-data:/var/lib/postgresql/data
+#      - gaiacore-data:/var/lib/postgresql/data
       - ./sql:/sql
       - ./test/omop:/csv
       - ./test/data_source:/data
@@ -43,9 +42,75 @@ services:
     networks:
       - gaiacore-network
 
-volumes:
-  gaiacore-data:
-    driver: local
+  connector-python:
+    build: ./connectors/python
+    container_name: gaiacore-python-connector
+    profiles: ["connectors", "python"]
+    environment:
+      - API_URL=http://gaiacore-api:3000
+    depends_on:
+      gaiacore-api:
+        condition: service_started
+    networks:
+      - gaiacore-network
+    # command: python pipeline_example.py http://gaiacore-api:3000
+
+  connector-r:
+    build: ./connectors/r
+    container_name: gaiacore-r-connector
+    profiles: ["connectors", "r"]
+    environment:
+      - API_URL=http://gaiacore-api:3000
+    depends_on:
+      gaiacore-api:
+        condition: service_started
+    networks:
+      - gaiacore-network
+    # command: Rscript pipeline_example.R http://gaiacore-api:3000
+
+  connector-bash:
+    build: ./connectors/bash
+    container_name: gaiacore-bash-connector
+    profiles: ["connectors", "bash"]
+    environment:
+      - API_URL=http://gaiacore-api:3000
+    depends_on:
+      gaiacore-api:
+        condition: service_started
+    networks:
+      - gaiacore-network
+    # command: /app/pipeline_example.sh http://gaiacore-api:3000
+
+  connector-julia:
+    build: ./connectors/julia
+    container_name: gaiacore-julia-connector
+    profiles: ["connectors", "julia"]
+    environment:
+      - API_URL=http://gaiacore-api:3000
+    depends_on:
+      gaiacore-api:
+        condition: service_started
+    networks:
+      - gaiacore-network
+    # command: julia pipeline_example.jl http://gaiacore-api:3000
+
+  connector-java:
+    build: ./connectors/java
+    container_name: gaiacore-java-connector
+    profiles: ["connectors", "java"]
+    environment:
+      - API_URL=http://gaiacore-api:3000
+    depends_on:
+      gaiacore-api:
+        condition: service_started
+    networks:
+      - gaiacore-network
+    # command: mvn exec:java -Dexec.mainClass=PipelineExample -Dexec.args="http://gaiacore-api:3000"
+
+
+#volumes:
+#  gaiacore-data:
+#    driver: local
 
 networks:
   gaiacore-network:

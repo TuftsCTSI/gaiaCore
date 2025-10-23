@@ -2,6 +2,8 @@
 
 Switch from an R-based approach to a PostGIS + PostgREST approach combined with JSON-LD representations of data sources in the gaiaCatalog.
 
+Also include connectors in multiple languages to interface with the PostgREST API and enable flexibility to use the tool in multiple environments.
+
 
 # gaiaCore Development Version 0.1.0
 
