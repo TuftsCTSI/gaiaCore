@@ -20,10 +20,10 @@ mkdir -p "$(dirname "$2")"
 
 # Download file
 echo "Downloading from $1..."
-curl -s -L -o "$2" "$1"
+curl -s -S -L --connect-timeout 30 --max-time 300 -o "$2" -- "$1"
 
-if [ $? -ne 0 ]; then
-    echo "Error: Download failed"
+if [ ! -f "$2" ] || [ ! -s "$2" ]; then
+    echo "Error: Download failed - file not found or empty"
     exit 1
 fi
 
@@ -127,9 +127,34 @@ CREATE OR REPLACE FUNCTION backbone.ingest_sql_data(
 )
 RETURNS TEXT AS $$
 #!/bin/sh
-echo "Executing SQL file: $1"
-cat "$1" | psql "dbname=gaiacore user=postgres"
-echo "Successfully executed SQL file: $1"
+
+# Check if file is gzip compressed
+if file "$1" | grep -q "gzip compressed"; then
+    echo "File is gzip compressed, decompressing..."
+    # Decompress using zcat (reads gzip regardless of extension)
+    SQL_FILE="${1%.sql}_decompressed.sql"
+    zcat "$1" > "$SQL_FILE"
+    if [ ! -f "$SQL_FILE" ] || [ ! -s "$SQL_FILE" ]; then
+        echo "Error: Decompression failed"
+        exit 1
+    fi
+    echo "Decompressed to: $SQL_FILE"
+else
+    SQL_FILE="$1"
+fi
+
+# Clean the SQL file - remove everything before "-- PostgreSQL database dump"
+CLEANED_FILE="${SQL_FILE%.sql}_cleaned.sql"
+if grep -q "^-- PostgreSQL database dump" "$SQL_FILE"; then
+    echo "Cleaning SQL file - removing header lines..."
+    sed -n '/^-- PostgreSQL database dump/,$p' "$SQL_FILE" > "$CLEANED_FILE"
+    SQL_FILE="$CLEANED_FILE"
+    echo "Cleaned SQL file ready"
+fi
+
+echo "Executing SQL file: $SQL_FILE"
+psql "dbname=gaiacore user=postgres" -f "$SQL_FILE"
+echo "Successfully executed SQL file: $SQL_FILE"
 $$ LANGUAGE plsh;
 
 -- Function to process ETL metadata from JSON-LD
@@ -290,21 +315,39 @@ BEGIN
         format('Downloading from: %s', v_download_url)::TEXT,
         NULL::JSONB;
 
+    -- Extract filename from URL, handling query parameters
     v_file_name := split_part(v_download_url, '/', array_length(string_to_array(v_download_url, '/'), 1));
+    v_file_name := split_part(v_file_name, '?', 1); -- Remove query parameters
+
+    -- If filename is empty or just a query string, use dataset name
+    IF v_file_name = '' OR v_file_name IS NULL THEN
+        v_file_name := format('%s.%s',
+            LOWER(REGEXP_REPLACE(v_dataset_name, '[^a-zA-Z0-9_]', '_', 'g')),
+            COALESCE(v_file_format, 'dat')
+        );
+    END IF;
+
     v_download_path := format('%s/%s', p_work_directory, v_file_name);
 
     BEGIN
+        RAISE NOTICE 'Starting download from: %', v_download_url;
+        RAISE NOTICE 'Download destination: %', v_download_path;
+
         v_result := backbone.fetch_and_extract_file(
             v_download_url,
             v_download_path,
             v_compression_type
         );
 
+        RAISE NOTICE 'Download completed successfully';
+        RAISE NOTICE 'Download result: %', v_result;
+
         RETURN QUERY SELECT 'download'::TEXT, 'success'::TEXT,
             v_result::TEXT,
             jsonb_build_object('download_path', v_download_path);
 
     EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Download failed with error: %', SQLERRM;
         RETURN QUERY SELECT 'download'::TEXT, 'error'::TEXT,
             format('Download failed: %s', SQLERRM)::TEXT,
             jsonb_build_object('error', SQLERRM);
