@@ -1,3 +1,21 @@
+# gaiaCore Local Development Docker Compose
+#
+# NOTE: This docker-compose is for LOCAL DEVELOPMENT AND TESTING ONLY
+#
+# For production deployments, use the gaiaDocker repository which provides:
+# - Separate gaiaDB service (https://github.com/OHDSI/gaiaDB)
+# - Full GAIA stack orchestration
+# - PostgREST API integration
+# - Additional utility services (osgeo, postgis, git, gdsc)
+#
+# This local setup is useful for:
+# - Developing and testing connectors
+# - Quick local testing of database functions
+# - Connector examples demonstration
+#
+# After starting this stack, load test data with:
+#   ./scripts/init_gaiacore.sh
+#
 
 services:
   gaiacore-db:

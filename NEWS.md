@@ -1,3 +1,7 @@
+# gaiaCore Development Version 1.1.0
+
+Break apart the big PR and shift db functionality to gaiaDB and orchestration to gaiaDocker
+
 # gaiaCore Development Version 1.0.0
 
 Switch from an R-based approach to a PostGIS + PostgREST approach combined with JSON-LD representations of data sources in the gaiaCatalog.
